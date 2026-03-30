@@ -573,30 +573,157 @@ function gameOver() {
   resetGame();
 }
 
-function drawIntro() {
-  if (imageStore.splash.complete) {
-    ctx.drawImage(imageStore.splash, 0, 0);
-  } else {
-    imageStore.splash.onload = function() {
-      ctx.drawImage(imageStore.splash, 0, 0);
-    };
+var menuAnimFrame = null;
+var menuStartTime = 0;
+
+function drawMenuBackground() {
+  var grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#000820');
+  grad.addColorStop(0.5, '#001048');
+  grad.addColorStop(1, '#000830');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+  for (var i = 0; i < 40; i++) {
+    var sx = (Math.sin(i * 73.7) * 0.5 + 0.5) * canvas.width;
+    var sy = (Math.cos(i * 91.3) * 0.5 + 0.5) * canvas.height;
+    var sr = 1 + (i % 3);
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-function drawGameOver() {
-  ctx.fillStyle = '#000033';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'white';
+function drawGlowText(text, x, y, font, color, glowColor, glowSize) {
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = glowSize;
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
 
-  ctx.font = "bold 64px 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText("GAME OVER", 140, 60);
+function drawPulsingText(text, x, y, font, elapsed) {
+  var alpha = 0.5 + 0.5 * Math.sin(elapsed * 3);
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(200, 220, 255, ' + alpha + ')';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
 
-  ctx.font = "28px 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText("Your score: " + score, 35, 140);
-  ctx.fillText("Your high score: " + high_score, 35, 180);
+function animateIntro(timestamp) {
+  if (running) return;
+  var elapsed = (timestamp - menuStartTime) / 1000;
 
+  drawMenuBackground();
+
+  var cx = canvas.width / 2;
+
+  drawGlowText('ASCENSION', cx, 120, "bold 72px 'Helvetica Neue', Arial, sans-serif",
+    '#ffffff', '#4488ff', 30);
+
+  ctx.save();
+  ctx.font = "18px 'Helvetica Neue', Arial, sans-serif";
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(180, 200, 230, 0.8)';
+  ctx.fillText('Hop on fruits and veggies to stay afloat', cx, 180);
+  ctx.fillText('and increase your score!', cx, 205);
+  ctx.restore();
+
+  var fruitY = 260;
+  var fruits = imageStore.fruits;
+  var spacing = 60;
+  var startX = cx - (fruits.length - 1) * spacing / 2;
+  for (var i = 0; i < fruits.length; i++) {
+    var bobY = fruitY + Math.sin(elapsed * 2 + i * 1.5) * 8;
+    ctx.drawImage(fruits[i], startX + i * spacing - 16, bobY - 16, 32, 32);
+  }
+
+  ctx.save();
   ctx.font = "16px 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText("Click anywhere to try again", 35, 300);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(150, 170, 200, 0.7)';
+  ctx.fillText('Move with mouse  \u2022  Click to jump', cx, 340);
+  ctx.restore();
+
+  drawPulsingText('Click anywhere to start', cx, 420,
+    "bold 22px 'Helvetica Neue', Arial, sans-serif", elapsed);
+
+  menuAnimFrame = window.requestAnimationFrame(animateIntro);
+}
+
+function drawIntro() {
+  menuStartTime = performance.now();
+  menuAnimFrame = window.requestAnimationFrame(animateIntro);
+}
+
+function stopMenuAnim() {
+  if (menuAnimFrame) {
+    window.cancelAnimationFrame(menuAnimFrame);
+    menuAnimFrame = null;
+  }
+}
+
+function animateGameOver(timestamp) {
+  if (running) return;
+  var elapsed = (timestamp - menuStartTime) / 1000;
+
+  drawMenuBackground();
+
+  var cx = canvas.width / 2;
+
+  drawGlowText('GAME OVER', cx, 100, "bold 68px 'Helvetica Neue', Arial, sans-serif",
+    '#ffffff', '#ff4466', 25);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  ctx.font = "bold 36px 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#4488ff';
+  ctx.shadowBlur = 10;
+  ctx.fillText(score.toLocaleString(), cx, 180);
+
+  ctx.shadowBlur = 0;
+  ctx.font = "16px 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillStyle = 'rgba(180, 200, 230, 0.7)';
+  ctx.fillText('SCORE', cx, 200);
+
+  if (score >= high_score && high_score > 0) {
+    ctx.font = "bold 16px 'Helvetica Neue', Arial, sans-serif";
+    var starAlpha = 0.7 + 0.3 * Math.sin(elapsed * 4);
+    ctx.fillStyle = 'rgba(255, 215, 0, ' + starAlpha + ')';
+    ctx.fillText('\u2605 NEW HIGH SCORE \u2605', cx, 240);
+  }
+
+  ctx.font = "bold 28px 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillStyle = 'rgba(200, 210, 230, 0.9)';
+  ctx.shadowColor = '#2266cc';
+  ctx.shadowBlur = 8;
+  ctx.fillText(high_score.toLocaleString(), cx, 290);
+  ctx.shadowBlur = 0;
+
+  ctx.font = "14px 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillStyle = 'rgba(150, 170, 200, 0.6)';
+  ctx.fillText('BEST', cx, 310);
+
+  ctx.restore();
+
+  drawPulsingText('Click anywhere to retry', cx, 420,
+    "bold 22px 'Helvetica Neue', Arial, sans-serif", elapsed);
+
+  menuAnimFrame = window.requestAnimationFrame(animateGameOver);
+}
+
+function drawGameOver() {
+  menuStartTime = performance.now();
+  menuAnimFrame = window.requestAnimationFrame(animateGameOver);
 }
 
 drawIntro();
@@ -607,6 +734,7 @@ function run(e) {
   if (e) e.preventDefault();
   canvas.removeEventListener('click', run, false);
   canvas.removeEventListener('touchstart', run, false);
+  stopMenuAnim();
   soundStore.music.play();
   running = true;
   lastTimestamp = null;
